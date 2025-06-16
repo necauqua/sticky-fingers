@@ -1,0 +1,5 @@
+<Mod
+  name="Test Mod"
+  description="My little playground"
+  request_no_api_restrictions="1"
+/>
