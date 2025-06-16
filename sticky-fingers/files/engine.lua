@@ -1,8 +1,8 @@
 local ffi = require 'ffi'
 local bit = require 'bit'
 
-dofile_once('mods/test-mod/files/cpp.lua')
-dofile_once('mods/test-mod/files/scan.lua')
+dofile_once('mods/sticky-fingers/files/cpp.lua')
+dofile_once('mods/sticky-fingers/files/scan.lua')
 
 KEYBINDS = {
     'key_up', 'key_down', 'key_left', 'key_right',
@@ -54,7 +54,7 @@ ffi.cdef [[
 
     typedef struct Mouse {
         void* vftable;
-        cpp_vector_void mMouseListeners;
+        cpp_vector_void listeners;
         cpp_vector_bool buttons_down;
         cpp_vector_int buttons_just_down;
         cpp_vector_int buttons_just_up;
@@ -67,7 +67,7 @@ ffi.cdef [[
     } Mouse;
 
     typedef struct Keyboard {
-        cpp_vector_void mListeners;
+        cpp_vector_void listeners;
         cpp_vector_bool keys_down;
         cpp_vector_bool keys_just_down;
         cpp_vector_bool keys_just_up;
@@ -99,15 +99,6 @@ ffi.cdef [[
         Keyboard* keyboard;
     } Platform;
 
-
-    typedef void(__thiscall *FireKeyDownEvent_t)(Keyboard* this, unsigned int keycode, unsigned int unicode);
-    typedef void(__thiscall *FireKeyUpEvent_t)(Keyboard* this, unsigned int keycode, unsigned int unicode);
-
-    typedef void(__thiscall *FireMouseMoveEvent_t)(Mouse* this, vec2* pos);
-    typedef void(__thiscall *FireMouseDownEvent_t)(Mouse* this, vec2* pos, unsigned int button);
-    typedef void(__thiscall *FireMouseUpEvent_t)(Mouse* this, vec2* pos, unsigned int button);
-
-
     typedef struct EventRecorderVftable {
         void* destructor;
         void* skip1;
@@ -120,6 +111,13 @@ ffi.cdef [[
         void* fire_mouse_down_event;
         void* fire_mouse_up_event;
     } EventRecorderVftable;
+
+    typedef void(__thiscall *FireKeyDownEvent_t)(Keyboard* this, unsigned int keycode, unsigned int unicode);
+    typedef void(__thiscall *FireKeyUpEvent_t)(Keyboard* this, unsigned int keycode, unsigned int unicode);
+
+    typedef void(__thiscall *FireMouseMoveEvent_t)(Mouse* this, vec2* pos);
+    typedef void(__thiscall *FireMouseDownEvent_t)(Mouse* this, vec2* pos, unsigned int button);
+    typedef void(__thiscall *FireMouseUpEvent_t)(Mouse* this, vec2* pos, unsigned int button);
 ]]
 
 local function get_first_rel_jmp(event_recorder_fn)
@@ -142,11 +140,7 @@ end
 local er_vftable = ffi.cast('EventRecorderVftable*', locate_vftable('.?AVEventRecorder@poro@@'))
 
 local magic_pointers = {
-    pause = ffi.cast('bool*', 0x01204bcb),
-    random_state = ffi.cast('int*', 0x0120741c),
-    poly_random_state = ffi.cast('double*', 0x01207420),
-
-    poro_platform = ffi.cast('Platform*', locate_poro_platform()),
+    poro_platform = ffi.cast('Platform*', locate_static_global('.?AVPlatformWin@poro@@')),
 
     fire_key_down_event = ffi.cast('FireKeyDownEvent_t', get_first_rel_jmp(er_vftable.fire_key_down_event)),
     fire_key_up_event = ffi.cast('FireKeyUpEvent_t', get_first_rel_jmp(er_vftable.fire_key_up_event)),
@@ -171,21 +165,6 @@ end
 
 function get_platform()
     return magic_pointers.poro_platform
-end
-
-function get_random_states()
-    return magic_pointers.random_state[0], magic_pointers.poly_random_state[0]
-end
-
-function simulation_paused()
-    return magic_pointers.pause[0]
-end
-
-function pause_simulation(pause)
-    if pause == nil then
-        pause = not magic_pointers.pause[0]
-    end
-    magic_pointers.pause[0] = pause
 end
 
 function msb(n)
@@ -214,6 +193,14 @@ function msb(n)
     return pos
 end
 
+local function presentable(key)
+    local nice = (key:match('^key_(.*)') or key)
+        :gsub('_', ' ')
+        :gsub('^%l', string.upper)
+        :gsub('%d$', ' %1')
+    return nice
+end
+
 function get_current_actions()
     local platform = get_platform()
     local controls = platform.app_config.keyboard_controls
@@ -227,19 +214,19 @@ function get_current_actions()
         if control.primary ~= 0 then
             if control.primary < 0 then
                 if buttons_down[msb(-control.primary) + 1] then
-                    table.insert(actions, key)
+                    table.insert(actions, presentable(key))
                 end
             elseif keys_down[control.primary] then
-                table.insert(actions, key)
+                table.insert(actions, presentable(key))
             end
         end
         if control.secondary ~= 0 then
             if control.secondary < 0 then
                 if buttons_down[msb(-control.secondary) + 1] then
-                    table.insert(actions, key)
+                    table.insert(actions, presentable(key))
                 end
             elseif keys_down[control.secondary] then
-                table.insert(actions, key .. ' (secondary)')
+                table.insert(actions, presentable(key) .. ' (secondary)')
             end
         end
     end

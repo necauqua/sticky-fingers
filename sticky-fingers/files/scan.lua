@@ -132,13 +132,3 @@ function locate_static_global(name)
     print_error(string.format("static global %s: 0x%08X", name, tonumber(addr)))
     return addr
 end
-
-function locate_kv_stats_map()
-    local global_stats = locate_static_global(".?AVGlobalStats@@")
-    -- then we skip some fields to get to the KEY_VALUE_STATS map
-    return global_stats + 24
-end
-
-function locate_poro_platform()
-    return locate_static_global('.?AVPlatformWin@poro@@')
-end
