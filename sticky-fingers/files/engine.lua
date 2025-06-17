@@ -120,116 +120,44 @@ ffi.cdef [[
     typedef void(__thiscall *FireMouseUpEvent_t)(Mouse* this, vec2* pos, unsigned int button);
 ]]
 
+PLATFORM = ffi.cast('Platform*', locate_static_global('.?AVPlatformWin@poro@@'))
+
 local function get_first_rel_jmp(event_recorder_fn)
     local ptr = ffi.cast('uint8_t*', event_recorder_fn)
 
-    -- Scan first two alightments for the relative jump instruction (0xE8)
+    -- Scan first two alightments for the relative jump instruction (0xE9)
     -- and calculate the jump target address.
     for i = 0, 0x20 do
         if ptr[i] == 0xE9 then
             return ptr + i + 5 + ffi.cast('int*', ptr + i + 1)[0]
         end
         if ptr[i] == 0xCC then
-            print_error('did not find a relative jump, arrived at 0xCC, ' .. tostring(event_recorder_fn))
+            log('[error] did not find a relative jump, arrived at 0xCC, fn %s', event_recorder_fn)
             return
         end
     end
-    print_error('did not find anything in 0x20 bytes?.. ' .. tostring(event_recorder_fn))
+    log('[error] did not find anything in 0x20 bytes?.. fn %s', event_recorder_fn)
 end
 
 local er_vftable = ffi.cast('EventRecorderVftable*', locate_vftable('.?AVEventRecorder@poro@@'))
 
-local magic_pointers = {
-    poro_platform = ffi.cast('Platform*', locate_static_global('.?AVPlatformWin@poro@@')),
+-- local fire_key_down_event = ffi.cast('FireKeyDownEvent_t', get_first_rel_jmp(er_vftable.fire_key_down_event))
+-- local fire_key_up_event = ffi.cast('FireKeyUpEvent_t', get_first_rel_jmp(er_vftable.fire_key_up_event))
+-- local fire_mouse_move_event = ffi.cast('FireMouseMoveEvent_t', get_first_rel_jmp(er_vftable.fire_mouse_move_event))
+local fire_mouse_down_event = ffi.cast('FireMouseDownEvent_t', get_first_rel_jmp(er_vftable.fire_mouse_down_event))
+local fire_mouse_up_event = ffi.cast('FireMouseUpEvent_t', get_first_rel_jmp(er_vftable.fire_mouse_up_event))
 
-    fire_key_down_event = ffi.cast('FireKeyDownEvent_t', get_first_rel_jmp(er_vftable.fire_key_down_event)),
-    fire_key_up_event = ffi.cast('FireKeyUpEvent_t', get_first_rel_jmp(er_vftable.fire_key_up_event)),
-    fire_mouse_move_event = ffi.cast('FireMouseMoveEvent_t', get_first_rel_jmp(er_vftable.fire_mouse_move_event)),
-    fire_mouse_down_event = ffi.cast('FireMouseDownEvent_t', get_first_rel_jmp(er_vftable.fire_mouse_down_event)),
-    fire_mouse_up_event = ffi.cast('FireMouseUpEvent_t', get_first_rel_jmp(er_vftable.fire_mouse_up_event)),
-}
+local mouse_index = {}
 
-function fire_mouse_button_event(button, state)
-    local mouse = magic_pointers.poro_platform.mouse
-    local pos = mouse.pos
-
+function mouse_index:fire_button_event(button, state)
     if state == nil then
-        state = not mouse.buttons_down[button]
+        state = not self.buttons_down[button]
     end
     if state then
-        magic_pointers.fire_mouse_down_event(mouse, pos, button)
+        fire_mouse_down_event(self, self.pos, button)
     else
-        magic_pointers.fire_mouse_up_event(mouse, pos, button)
+        fire_mouse_up_event(self, self.pos, button)
     end
 end
 
-function get_platform()
-    return magic_pointers.poro_platform
-end
-
-function msb(n)
-    if n == 0 then return end
-
-    local pos = 0
-
-    if bit.band(n, 0xFFFF0000) ~= 0 then
-        pos = pos + 16
-        n = bit.rshift(n, 16)
-    end
-    if bit.band(n, 0xFF00) ~= 0 then
-        pos = pos + 8
-        n = bit.rshift(n, 8)
-    end
-    if bit.band(n, 0xF0) ~= 0 then
-        pos = pos + 4
-        n = bit.rshift(n, 4)
-    end
-    if bit.band(n, 0xC) ~= 0 then
-        pos = pos + 2
-        n = bit.rshift(n, 2)
-    end
-    if bit.band(n, 0x2) ~= 0 then pos = pos + 1 end
-
-    return pos
-end
-
-local function presentable(key)
-    local nice = (key:match('^key_(.*)') or key)
-        :gsub('_', ' ')
-        :gsub('^%l', string.upper)
-        :gsub('%d$', ' %1')
-    return nice
-end
-
-function get_current_actions()
-    local platform = get_platform()
-    local controls = platform.app_config.keyboard_controls
-
-    local buttons_down = platform.mouse.buttons_down
-    local keys_down = platform.keyboard.keys_down
-    local actions = {}
-
-    for _, key in ipairs(KEYBINDS) do
-        local control = controls[key]
-        if control.primary ~= 0 then
-            if control.primary < 0 then
-                if buttons_down[msb(-control.primary) + 1] then
-                    table.insert(actions, presentable(key))
-                end
-            elseif keys_down[control.primary] then
-                table.insert(actions, presentable(key))
-            end
-        end
-        if control.secondary ~= 0 then
-            if control.secondary < 0 then
-                if buttons_down[msb(-control.secondary) + 1] then
-                    table.insert(actions, presentable(key))
-                end
-            elseif keys_down[control.secondary] then
-                table.insert(actions, presentable(key) .. ' (secondary)')
-            end
-        end
-    end
-
-    return actions
-end
+ffi.metatype('Mouse', { __index = mouse_index })

@@ -19,6 +19,13 @@ mod_settings = {
         value_default = true,
         scope = MOD_SETTING_SCOPE_RUNTIME,
     },
+    {
+        id = "keybind",
+        ui_name = "Enable Release All Keybind",
+        ui_description = "With this enabled pressing R will release all keys.",
+        value_default = false,
+        scope = MOD_SETTING_SCOPE_RUNTIME,
+    },
 }
 
 function ModSettingsUpdate(init_scope)

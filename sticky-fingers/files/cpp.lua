@@ -55,6 +55,17 @@ ffi.metatype('cpp_vector_bool', {
     end,
 })
 
+-- opaque vector that is just padding where we know its a vector of something
+ffi.cdef [[
+    typedef struct cpp_vector_void {
+        void* start;
+        void* end;
+        void* end_cap;
+    } cpp_vector_void;
+]]
+-- ^ no metatype so we wont try to index into it or whatever, cant even know its length
+
+-- a "generic" vector def
 local function cpp_vector(item_type_name)
     local decl = string.gsub([[
         typedef struct cpp_vector_$type {
@@ -87,5 +98,4 @@ local function cpp_vector(item_type_name)
     return tpe
 end
 
-cpp_vector('void')
 cpp_vector('int')

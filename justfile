@@ -1,3 +1,4 @@
+mod-name := "sticky-fingers"
 proton := "Proton - Experimental"
 
 noita-dir := "noita"
@@ -42,12 +43,13 @@ run:
     steam_common="$(just find-steam-lib)/common"
 
     # idempotently make sure things are in place:
-    mkdir -p "{{save-dir}}/"{save_shared,save00/persistent/flags}
+    mkdir -p "{{save-dir}}/"{save_shared,save00/persistent/flags} "{{noita-dir}}/mods"
     ln -f config.xml "{{save-dir}}/save_shared/config.xml"
+    ln -sf ../../"{{mod-name}}" "{{noita-dir}}/mods/"
     # just link .exe, .dll and data into a new cwd ¯\_(ツ)_/¯
     ln -sf "$steam_common/Noita/"{*.dll,noita.exe,data} noita
     # stop release notes popup (config must have the same hash string)
-    echo -n static > {{noita-dir}}/_version_hash.txt
+    echo -n static > "{{noita-dir}}/_version_hash.txt"
 
     # some bs to have logs printed to the terminal and have CTRL+C work
     echo '' > noita/logger.txt

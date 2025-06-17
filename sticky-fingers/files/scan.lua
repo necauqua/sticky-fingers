@@ -120,15 +120,20 @@ function locate_vftable(name)
     -- which is pointed to from a place right before the vftable
     local before_vftable = memfind(rdata, locator_bytes, 4)
 
-    return before_vftable + 4
+    local vftable = before_vftable + 4
+
+    if log then log("vftable for %s: 0x%08X", name, tonumber(vftable)) end
+
+    return vftable
 end
 
 function locate_static_global(name)
     local vftable = locate_vftable(name)
-    print_error(string.format("vftable for %s: 0x%08X", name, tonumber(vftable)))
     local vftable_bytes = to_le_bytes(vftable)
     -- which is at the beginning of the static global
     local addr = memfind(data, vftable_bytes, 4)
-    print_error(string.format("static global %s: 0x%08X", name, tonumber(addr)))
+
+    if log then log("static global %s: 0x%08X", name, tonumber(addr)) end
+
     return addr
 end
