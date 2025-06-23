@@ -100,7 +100,7 @@ setup-noita-dir steam-common:
         sh -c 'ln -sf "../../$(basename "$(pwd)")" "../{{noita-dir}}/mods/"' \;
 
     # just link .exe, .dll and data into a new cwd ¯\_(ツ)_/¯
-    ln -sf "{{steam-common}}/Noita/{*.dll,*.exe,data}" "{{noita-dir}}"
+    ln -sf "{{steam-common}}/Noita/"{*.dll,*.exe,data} "{{noita-dir}}"
 
     # see workshop mods and set steam now playing
     if [[ -v WITH_STEAM ]]; then
